@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>GPU</title>
+<style>
+body { margin: 0; overflow: hidden; } 
+</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+
+
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight); // กำหนดขนาดของ Renderer ให้เท่ากับขนาดหน้าจอเบราว์เซอร์
+document.body.appendChild(renderer.domElement); // เพิ่ม Canvas ของ Renderer เข้าไปใน body ของ HTML
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.z = 5;
+
+const geometryCube = new THREE.BoxGeometry(1, 1, 1); // สร้าง Geometry ของลูกบาศก์ขนาด 1x1x1
+        const meshCube = new THREE.Mesh(geometryCube);// สร้าง Mesh ของลูกบาศก์โดยใช้ Geometry ที่สร้างขึ้น
+        scene.add(meshCube); // เพิ่ม Mesh ของลูกบาศก์เข้าไปใน Scene
+        meshCube.rotation.x = Math.PI / 4; // หมุนลูกบาศก์รอบแกน X 45 องศา
+
+        function animate() {
+            requestAnimationFrame(animate); // เรียกใช้ฟังก์ชัน animate ซ้ำ ๆ เพื่อสร้าง Animation
+            meshCube.rotation.x += 0.01; // หมุนลูกบาศก์รอบแกน X เพิ่มขึ้น 0.01 radian ต่อ frame
+            meshCube.rotation.y += 0.01; // หมุนลูกบาศก์รอบแกน Y เพิ่มขึ้น 0.01 radian ต่อ frame
+            renderer.render(scene, camera); // Render Scene และ Camera
+        }
+
+const COUNT = 10000; 
+const geo = new THREE.BoxGeometry(0.1,0.1,0.1);
+const mat = new THREE.MeshNormalMaterial();
+const mesh = new THREE.InstancedMesh(geo, mat, COUNT); // ★ instanced
+scene.add(mesh);
+const dummy = new THREE.Object3D(); // ช่วยตั้ง matrix
+for(let i=0;i<COUNT;i++){
+dummy.position.set(
+    (Math.random()-.5)*20,
+    (Math.random()-.5)*20,
+    (Math.random()-.5)*20
+);
+dummy.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
+dummy.updateMatrix();
+mesh.setMatrixAt(i, dummy.matrix);
+}
+
+function animate(t){
+mesh.rotation.y = t*0.0003; // หมุนก้อน instanced ทั้งกลุ่ม
+renderer.render(scene,camera);
+requestAnimationFrame(animate);
+}
+animate();
+
+
+renderer.render(scene, camera);
+
+
+</script>
+</body>
+</html>

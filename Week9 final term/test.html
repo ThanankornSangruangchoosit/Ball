@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hand Tracking Skeleton - MediaPipe JS</title>
+  
+  <!-- โหลด CSS และ CDN ไลบรารีสำหรับ MediaPipe Hands และ Drawing Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #1e1e24;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #fff;
+      font-family: sans-serif;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    .container {
+      position: relative;
+      width: 640px;
+      height: 480px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+
+    /* ซ่อน video element ไว้เบื้องหลัง และเปิดแสดงเฉพาะ canvas */
+    video {
+      display: none;
+    }
+
+    /* กลับด้าน canvas (mirror effect) เพื่อให้เหมือนมองกระจก */
+    canvas {
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1);
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Hand Tracking Skeleton</h1>
+  <div class="container">
+    <video id="webcam" playsinline></video>
+    <canvas id="output_canvas" width="640" height="480"></canvas>
+  </div>
+
+  <script>
+    const videoElement = document.getElementById('webcam');
+    const canvasElement = document.getElementById('output_canvas');
+    const canvasCtx = canvasElement.getContext('2d');
+
+    // 1. ตั้งค่า MediaPipe Hands
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+      maxNumHands: 2,               // ตรวจจับสูงสุด 2 มือ
+      modelComplexity: 1,           // ความละเอียดโมเดล
+      minDetectionConfidence: 0.5,  // ความแม่นยำขั้นต่ำในการตรวจจับ
+      minTrackingConfidence: 0.5   // ความแม่นยำขั้นต่ำในการติดตาม
+    });
+
+    // 2. ฟังก์ชันประมวลผลเมื่อพบมือในแต่ละเฟรม
+    hands.onResults((results) => {
+      // เคลียร์ Canvas เก่าออกก่อนวาดเฟรมใหม่
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      
+      // วาดภาพจากกล้อง Webcam ลงบน Canvas
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+      // ถ้าพบมือในภาพ ให้วาดเส้นโครงกระดูกและจุดเชื่อมต่อ
+      if (results.multiHandLandmarks) {
+        for (const landmarks of results.multiHandLandmarks) {
+          
+          // วาดเส้นเชื่อมต่อ (Skeleton / Connections)
+          drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
+            color: '#00FF00', // เส้นโครงกระดูกสีเขียว
+            lineWidth: 3
+          });
+
+          // วาดจุดข้อต่อ (Landmarks / Keypoints)
+          drawLandmarks(canvasCtx, landmarks, {
+            color: '#FF0000', // จุดสีแดง
+            fillColor: '#FFFFFF',
+            lineWidth: 1,
+            radius: 4
+          });
+        }
+      }
+      canvasCtx.restore();
+    });
+
+    // 3. เริ่มต้นเปิดใช้งานกล้อง Webcam
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        await hands.send({ image: videoElement });
+      },
+      width: 640,
+      height: 480
+    });
+
+    camera.start();
+  </script>
+</body>
+</html>

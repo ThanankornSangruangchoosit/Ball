@@ -16,6 +16,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/EXRLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
@@ -39,7 +40,7 @@
         camera.lookAt(0, 0, 0);
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.target.set(0, 0, 0);
-       // controls.maxDistance = 20;
+        //controls.maxDistance = 20;
         controls.maxPolarAngle = Math.PI / 2;
         controls.update();
 
@@ -53,6 +54,23 @@
         lightSource.shadow.camera.near = 0.1;
         lightSource.shadow.camera.far = 30;
         scene.add(lightSource);
+
+        const exrSkyboxUrl = 'https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/4k/kloppenheim_06_puresky_4k.exr';
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        pmremGenerator.compileEquirectangularShader();
+
+        new THREE.EXRLoader()
+            .setDataType(THREE.UnsignedByteType)
+            .load(exrSkyboxUrl, (texture) => {
+                const skybox = pmremGenerator.fromEquirectangular(texture).texture;
+                scene.background = skybox;
+                scene.environment = skybox;
+
+                texture.dispose();
+                pmremGenerator.dispose();
+            }, undefined, (error) => {
+                console.error('Unable to load EXR skybox:', error);
+            });
 
 /* Auto-exported from Blender */
 /*const vertices = [
@@ -96,7 +114,7 @@ const uvs = [
         });*/
 
         const loader = new THREE.GLTFLoader();
-        loader.load('https://media.githubusercontent.com/media/ThanankornSangruangchoosit/Ball/main/Ramenbuild.glb', (gltf) => {    //เปลี่ยนตรงนี้นะเติ้ล
+        loader.load('https://media.githubusercontent.com/media/ThanankornSangruangchoosit/Ball/main/Ramenbuildnolight.glb', (gltf) => {    //เปลี่ยนตรงนี้นะเติ้ล
             const model = gltf.scene;
             model.traverse((child) => {
                 if (child.isMesh) {

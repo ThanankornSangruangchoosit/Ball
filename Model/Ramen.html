@@ -39,6 +39,7 @@
         camera.lookAt(0, 0, 0);
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.target.set(0, 0, 0);
+       // controls.maxDistance = 20;
         controls.maxPolarAngle = Math.PI / 2;
         controls.update();
 

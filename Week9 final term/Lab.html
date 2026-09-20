@@ -266,7 +266,7 @@
         }
 
         renderer.domElement.addEventListener('pointerdown', (event) => {
-            if (!event.shiftKey || !lightState.mouseMove) return;
+            if (!event.shitKey || !lightState.mouseMove) return;
             dragState.active = true;
             renderer.domElement.setPointerCapture(event.pointerId);
             moveLightFromPointer(event);

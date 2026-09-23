@@ -114,8 +114,8 @@
 
         // ข้อมูล portfolio ของเจ้าของ
         const portfolioData = {
-            name: "ศุภวิชญ์ พุ่มพฤกษ์",
-            studentId: "6721601508",
+            name: "ขยพล แสนทวี",
+            studentId: "6721601095",
             major: "วิทยาการคอมพิวเตอร์",
             faculty: "ศิลปศาสตร์และวิทยาศาสตร์",
             bio: "เนื้อหา portfolio (ผลงาน / โปรเจกต์) จะเพิ่มเติมภายหลัง"
@@ -159,7 +159,7 @@
             const ctx = canvas.getContext('2d');
             const shades = [80, 140, 190, 255];
             shades.forEach((v, i) => {
-                ctx.fillStyle = `rgb(${v},${v},${v})`;
+               ctx.fillStyle = `rgb(${v},${v},${v})`;
                 ctx.fillRect(i, 0, 1, 1);
             });
             const texture = new THREE.CanvasTexture(canvas);
@@ -200,7 +200,7 @@
         dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
         loader.setDRACOLoader(dracoLoader);
 
-        loader.load('https://supawitphumpurk.github.io/Shushifull/Shushi.glb?v=', (gltf) => {
+        loader.load('https://media.githubusercontent.com/media/ThanankornSangruangchoosit/Ball/main/Ramenbuildnolight.glb', (gltf) => {
             const model = gltf.scene;
             modelRoot = model;
 
@@ -240,14 +240,14 @@
                 }
 
                 // --- เก็บ reference object สำหรับปุ่มคลิก ---
-                if (node.name === 'Plane025') menuButtonObj = node;
-                if (node.name === 'Plane026') aboutButtonObj = node;
-                if (node.name === 'Plane027') photoButtonObj = node;
+                if (node.name === 'Text001') menuButtonObj = node;
+                if (node.name === 'Text003') aboutButtonObj = node;
+                if (node.name === 'Text002') photoButtonObj = node;
 
                 // --- เก็บ reference object เป้าหมายที่กล้องจะซูมไป ---
-                if (node.name === 'Plane016') menuTargetObj = node;
-                if (node.name === 'Plane017') aboutTargetObj = node;
-                if (node.name === 'Plane024') photoTargetObj = node;
+                if (node.name === 'Cube021') menuTargetObj = node;
+                if (node.name === 'Cube020') aboutTargetObj = node;
+                if (node.name === 'Cube019') photoTargetObj = node;
 
                 // --- Vertex Shader: คลื่นไหวบนผ้าม่านสีแดง ---
                 if (CURTAIN_OBJECT_NAMES.includes(node.name)) {

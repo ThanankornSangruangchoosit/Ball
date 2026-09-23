@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model - Shushi</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: 'Sarabun', 'Segoe UI', sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* --- แผงข้อมูล (menu / about me / photo) --- */
+        #infoPanel {
+            display: none;
+            position: fixed;
+            top: 50%;
+            right: 30px;
+            transform: translateY(-50%);
+            width: 300px;
+            max-width: 80vw;
+            background: rgba(20,20,20,0.92);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 14px;
+            padding: 20px;
+            color: #fff;
+            z-index: 20;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+        #infoPanel h2 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #ff5a5f;
+        }
+        #infoPanel p {
+            margin: 4px 0;
+            font-size: 14px;
+            line-height: 1.5;
+            opacity: 0.9;
+        }
+        #infoPanel .label {
+            opacity: 0.55;
+            font-size: 12px;
+        }
+        #infoPanel button {
+            margin-top: 14px;
+            padding: 8px 14px;
+            border: none;
+            border-radius: 8px;
+            background: #333;
+            color: #fff;
+            cursor: pointer;
+        }
+        #infoPanel button:hover { background: #555; }
+
+        #hint {
+            position: fixed;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.55);
+            font-size: 13px;
+            z-index: 5;
+            pointer-events: none;
+            text-align: center;
+        }
+
+        /* --- กล่อง debug: โชว์ชื่อ object ที่คลิกล่าสุด --- */
+        #debugBox {
+            position: fixed;
+            top: 14px;
+            right: 14px;
+            background: rgba(0,0,0,0.6);
+            color: #0f0;
+            font-family: monospace;
+            font-size: 13px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            z-index: 30;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="hint">คลิกปุ่ม Menu / About Me / Photo บนผนังร้านเพื่อดูข้อมูล</div>
+    <div id="debugBox"></div>
+
+    <!-- แผงข้อมูล menu / about me / photo -->
+    <div id="infoPanel">
+        <div id="infoPanelContent"></div>
+        <button id="btnInfoClose">← กลับ</button>
+    </div>
+
+    <!-- Core Three.js & Loaders -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+
+    <script>
+        /* ============================================================
+           ตั้งค่า / ข้อมูล
+           ============================================================ */
+
+        const CURTAIN_OBJECT_NAMES = [ "Plane011" ];
+
+        // ข้อมูล portfolio ของเจ้าของ
+        const portfolioData = {
+            name: "ศุภวิชญ์ พุ่มพฤกษ์",
+            studentId: "6721601508",
+            major: "วิทยาการคอมพิวเตอร์",
+            faculty: "ศิลปศาสตร์และวิทยาศาสตร์",
+            bio: "เนื้อหา portfolio (ผลงาน / โปรเจกต์) จะเพิ่มเติมภายหลัง"
+        };
+
+        /* ============================================================
+           1. Setup Scene & Camera
+           ============================================================ */
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        // แก้สีเพี้ยน
+        renderer.outputEncoding = THREE.sRGBEncoding;
+
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // แสงสว่าง
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight.position.set(0, 10, 10);
+        scene.add(directionalLight);
+
+        /* ============================================================
+           Cel-shading gradient map (สำหรับ Icosphere)
+           ============================================================ */
+        function createToonGradientTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 4;
+            canvas.height = 1;
+            const ctx = canvas.getContext('2d');
+            const shades = [80, 140, 190, 255];
+            shades.forEach((v, i) => {
+                ctx.fillStyle = `rgb(${v},${v},${v})`;
+                ctx.fillRect(i, 0, 1, 1);
+            });
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.NearestFilter;
+            texture.magFilter = THREE.NearestFilter;
+            texture.generateMipmaps = false;
+            return texture;
+        }
+        const toonGradientMap = createToonGradientTexture();
+
+        /* ============================================================
+           ตัวแปรเก็บ object สำคัญ + สถานะกล้อง
+           ============================================================ */
+        let modelRoot = null;
+
+        // ปุ่มที่คลิกได้ (สร้างใหม่โดยผู้ใช้)
+        let menuButtonObj = null;   // Plane025 - ปุ่ม Menu
+        let aboutButtonObj = null;  // Plane026 - ปุ่ม About me
+        let photoButtonObj = null;  // Plane027 - ปุ่ม Photo
+
+        // object เป้าหมายที่กล้องจะซูมไปหา / โชว์ข้อมูลประกอบ
+        let menuTargetObj = null;   // Plane016 - หน้าเมนู
+        let aboutTargetObj = null;  // Plane017 - ป้ายหน้าร้าน (ข้อมูลส่วนตัว/portfolio)
+        let photoTargetObj = null;  // Plane024 - มีรูปหน้าผมอยู่
+
+        let defaultCamPos = new THREE.Vector3();
+        let defaultCamTarget = new THREE.Vector3();
+
+        // vertex-shader ที่ผูกกับ material ของผ้าม่าน (ไว้อัปเดต uTime ทุกเฟรม)
+        const curtainShaders = [];
+        const clock = new THREE.Clock();
+
+        /* ============================================================
+           2. โหลดโมเดล Shushi.glb
+           ============================================================ */
+        const loader = new THREE.GLTFLoader();
+        const dracoLoader = new THREE.DRACOLoader();
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+        loader.setDRACOLoader(dracoLoader);
+
+        loader.load('https://supawitphumpurk.github.io/Shushifull/Shushi.glb?v=', (gltf) => {
+            const model = gltf.scene;
+            modelRoot = model;
+
+            // --- [หมุนโมเดลให้หน้าร้านหันเข้าหากล้อง] ---
+            model.rotation.y = -Math.PI / 2;
+
+            // --- Debug: log รายชื่อ mesh ทั้งหมดในโมเดล (เปิด Console ดูได้ F12) ---
+            const allMeshNames = [];
+
+            // --- ไล่ดูทุก mesh ในโมเดล เพื่อสลับวัสดุ / เก็บ reference / ผูก shader ---
+            model.traverse((node) => {
+                if (!node.isMesh) return;
+                allMeshNames.push(node.name);
+
+                const originalMap = node.material ? node.material.map : null;
+                const originalColor = node.material && node.material.color
+                    ? node.material.color.clone()
+                    : new THREE.Color(0xffffff);
+
+                // --- PBR material สำหรับ Cylinder ---
+                if (node.name.startsWith('Cylinder')) {
+                    node.material = new THREE.MeshStandardMaterial({
+                        map: originalMap,
+                        color: originalColor,
+                        metalness: 0.85,
+                        roughness: 0.25,
+                    });
+                }
+
+                // --- Cel Shading material สำหรับ Icosphere ---
+                if (node.name.startsWith('Icosphere')) {
+                    node.material = new THREE.MeshToonMaterial({
+                        map: originalMap,
+                        color: originalColor,
+                        gradientMap: toonGradientMap,
+                    });
+                }
+
+                // --- เก็บ reference object สำหรับปุ่มคลิก ---
+                if (node.name === 'Plane025') menuButtonObj = node;
+                if (node.name === 'Plane026') aboutButtonObj = node;
+                if (node.name === 'Plane027') photoButtonObj = node;
+
+                // --- เก็บ reference object เป้าหมายที่กล้องจะซูมไป ---
+                if (node.name === 'Plane016') menuTargetObj = node;
+                if (node.name === 'Plane017') aboutTargetObj = node;
+                if (node.name === 'Plane024') photoTargetObj = node;
+
+                // --- Vertex Shader: คลื่นไหวบนผ้าม่านสีแดง ---
+                if (CURTAIN_OBJECT_NAMES.includes(node.name)) {
+                    node.material.onBeforeCompile = (shader) => {
+                        shader.uniforms.uTime = { value: 0 };
+                        shader.vertexShader = 'uniform float uTime;\n' + shader.vertexShader;
+                        shader.vertexShader = shader.vertexShader.replace(
+                            '#include <begin_vertex>',
+                            `
+                            #include <begin_vertex>
+                            float waveStrength = 0.04;
+                            float waveSpeed = 2.0;
+                            float waveFreq = 6.0;
+                            float hangFactor = clamp(1.0 - (position.y + 1.0), 0.0, 1.0);
+                            transformed.x += sin(position.y * waveFreq + uTime * waveSpeed) * waveStrength * hangFactor;
+                            transformed.z += cos(position.y * waveFreq * 0.7 + uTime * waveSpeed) * waveStrength * 0.5 * hangFactor;
+                            `
+                        );
+                        curtainShaders.push(shader);
+                    };
+                    node.material.needsUpdate = true;
+                }
+            });
+
+            // คำนวณขนาดและจุดศูนย์กลางหลังจากหมุน
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+
+            // จัดกึ่งกลางโมเดล
+            model.position.sub(center);
+
+            // คำนวณระยะถอยกล้องให้พอดีหน้าจอ
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = camera.fov * (Math.PI / 180);
+            let cameraZ = Math.abs(maxDim / (2 * Math.tan(fov / 2)));
+            cameraZ *= 1.35;
+
+            camera.position.set(0, 0, cameraZ);
+            controls.target.set(0, 0, 0);
+            controls.update();
+
+            defaultCamPos.copy(camera.position);
+            defaultCamTarget.copy(controls.target);
+
+            scene.add(model);
+
+            // --- Debug: แสดงรายชื่อ mesh ทั้งหมด + เช็คว่าหา object สำคัญเจอไหม ---
+            console.log('รายชื่อ mesh ทั้งหมดในโมเดล:', allMeshNames);
+            console.log('menuButtonObj (Plane025):', menuButtonObj ? menuButtonObj.name : '❌ ไม่เจอ');
+            console.log('aboutButtonObj (Plane026):', aboutButtonObj ? aboutButtonObj.name : '❌ ไม่เจอ');
+            console.log('photoButtonObj (Plane027):', photoButtonObj ? photoButtonObj.name : '❌ ไม่เจอ');
+            console.log('menuTargetObj (Plane016):', menuTargetObj ? menuTargetObj.name : '❌ ไม่เจอ');
+            console.log('aboutTargetObj (Plane017):', aboutTargetObj ? aboutTargetObj.name : '❌ ไม่เจอ');
+            console.log('photoTargetObj (Plane024):', photoTargetObj ? photoTargetObj.name : '❌ ไม่เจอ');
+            if (!menuButtonObj || !aboutButtonObj || !photoButtonObj) {
+                document.getElementById('hint').innerText =
+                    'บางปุ่มยังไม่เจอ object ในโมเดล — เปิด Console (F12) ดูรายชื่อทั้งหมด';
+            }
+        }, undefined, (error) => {
+            console.error('เกิดข้อผิดพลาดในการโหลดโมเดล:', error);
+        });
+
+        /* ============================================================
+           3. Picking (Raycaster) - คลิกปุ่มในฉาก
+           ============================================================ */
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        renderer.domElement.addEventListener('click', (event) => {
+            if (!modelRoot) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(modelRoot, true);
+
+            if (intersects.length === 0) return;
+            const hit = intersects[0].object;
+
+            // --- Debug: โชว์ชื่อ object ที่คลิกล่าสุด มุมขวาบน ---
+            const debugBox = document.getElementById('debugBox');
+            debugBox.style.display = 'block';
+            debugBox.innerText = 'คลิกโดน: ' + hit.name;
+            console.log('คลิกโดน object ชื่อ:', hit.name);
+
+            if (hit === menuButtonObj) {
+                showMenu();
+            } else if (hit === aboutButtonObj) {
+                showAboutMe();
+            } else if (hit === photoButtonObj) {
+                showPhoto();
+            }
+        });
+
+        /* ============================================================
+           4. กล้องเลื่อนไปโฟกัสวัตถุ (camera fly / tween)
+           ============================================================ */
+        let flyAnim = null;
+
+        function focusOnObject(obj, distanceMultiplier = 2.2) {
+            if (!obj) return;
+            const box = new THREE.Box3().setFromObject(obj);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z, 0.2);
+
+            const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+            const targetCamPos = center.clone().add(dir.multiplyScalar(maxDim * distanceMultiplier));
+
+            flyCameraTo(targetCamPos, center);
+        }
+
+        function flyCameraTo(targetPos, targetLook, duration = 900) {
+            if (flyAnim) cancelAnimationFrame(flyAnim.id);
+
+            const startPos = camera.position.clone();
+            const startTarget = controls.target.clone();
+            const startTime = performance.now();
+
+            controls.enabled = false;
+
+            function step(now) {
+                const t = Math.min((now - startTime) / duration, 1);
+                const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+                camera.position.lerpVectors(startPos, targetPos, ease);
+                controls.target.lerpVectors(startTarget, targetLook, ease);
+                controls.update();
+
+                if (t < 1) {
+                    flyAnim = { id: requestAnimationFrame(step) };
+                } else {
+                    controls.enabled = true;
+                }
+            }
+            flyAnim = { id: requestAnimationFrame(step) };
+        }
+
+        function resetCamera() {
+            flyCameraTo(defaultCamPos, defaultCamTarget);
+        }
+
+        /* ============================================================
+           5. แผงข้อมูล (UI)
+           ============================================================ */
+        const infoPanelEl = document.getElementById('infoPanel');
+        const infoPanelContentEl = document.getElementById('infoPanelContent');
+        const hintEl = document.getElementById('hint');
+
+        function openInfoPanel(html) {
+            infoPanelContentEl.innerHTML = html;
+            infoPanelEl.style.display = 'block';
+            hintEl.style.display = 'none';
+        }
+        function closeInfoPanel() {
+            infoPanelEl.style.display = 'none';
+            resetCamera();
+            hintEl.style.display = 'block';
+        }
+        document.getElementById('btnInfoClose').onclick = closeInfoPanel;
+
+        // ปุ่ม 1: Menu
+        function showMenu() {
+            focusOnObject(menuTargetObj, 1.6);
+            openInfoPanel(`
+                <h2>เมนูร้าน SHUSHIDAI</h2>
+                <p>-Sake shushi</p>
+                <p>-Toro shushi</p>
+                <p>-Ika shushi</p>
+                <p>-Hirame shushi</p>
+                <p>-Hotate shushi</p>
+                <p>-Maguro shushi</p>
+            `);
+        }
+
+        // ปุ่ม 2: About me (ข้อมูลส่วนตัว / portfolio)
+        function showAboutMe() {
+            focusOnObject(aboutTargetObj, 2.0);
+            openInfoPanel(`
+                <h2>About Me</h2>
+                <p><span class="label">ชื่อ-สกุล</span><br>${portfolioData.name}</p>
+                <p><span class="label">รหัสนักศึกษา</span><br>${portfolioData.studentId}</p>
+                <p><span class="label">สาขา</span><br>${portfolioData.major}</p>
+                <p><span class="label">คณะ</span><br>${portfolioData.faculty}</p>
+                <p style="margin-top:10px; opacity:0.7; font-style:italic;">${portfolioData.bio}</p>
+            `);
+        }
+
+        // ปุ่ม 3: Photo
+        function showPhoto() {
+            focusOnObject(photoTargetObj, 1.4);
+            openInfoPanel(`
+                <h2>Photo</h2>
+                <p>รูปถ่ายตัวเอง (แสดงบนโมเดล 3D ที่กล้องกำลังซูมอยู่)</p>
+            `);
+        }
+
+        /* ============================================================
+           6. Loop Render
+           ============================================================ */
+        function animate() {
+            controls.update();
+
+            const t = clock.getElapsedTime();
+            curtainShaders.forEach((shader) => {
+                shader.uniforms.uTime.value = t;
+            });
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // ปรับขนาดอัตโนมัติเมื่อย่อ/ขยายหน้าจอ
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

@@ -396,7 +396,7 @@
         dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
         loader.setDRACOLoader(dracoLoader);
 
-        loader.load('https://media.githubusercontent.com/media/chayaponsaenthavee/Ball/main/Store20.glb', (gltf) => {
+        loader.load('https://media.githubusercontent.com/media/chayaponsaenthavee/Ball/main/Store21.glb', (gltf) => {
             const model = gltf.scene;
             modelRoot = model;
             model.rotation.y = -Math.PI / 2;
@@ -589,8 +589,8 @@
         function updateCameraFly() {
             if (!camGoalPos) return;
 
-            camera.position.lerp(camGoalPos, 0.03);
-            controls.target.lerp(camGoalTarget, 0.03);
+            camera.position.lerp(camGoalPos, 0.015);
+            controls.target.lerp(camGoalTarget, 0.015);
 
             if (camera.position.distanceTo(camGoalPos) < 0.001 &&
                 controls.target.distanceTo(camGoalTarget) < 0.001) {
